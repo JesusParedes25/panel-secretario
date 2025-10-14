@@ -1,0 +1,66 @@
+# Node modules
+node_modules
+*/node_modules
+npm-debug.log
+yarn-error.log
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist
+build
+*/dist
+*/build
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage
+.nyc_output
+
+# Documentation
+README.md
+QUICKSTART.md
+docs
+
+# Sample data (already in public)
+sample-data
+
+# Scripts (not needed in containers)
+scripts
+
+# Docker
+docker-compose.yml
+Dockerfile
+*/Dockerfile
+.dockerignore
+
+# Certbot
+certbot
+
+# Nginx (mounted separately)
+nginx
+
+# Temporary files
+*.tmp
+*.bak
+.cache

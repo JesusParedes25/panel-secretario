@@ -1,0 +1,46 @@
+{
+  "name": "panel-secretario",
+  "version": "1.0.0",
+  "description": "Plataforma institucional de analítica ejecutiva para la simplificación de trámites estatales - Gobierno del Estado de Hidalgo",
+  "private": true,
+  "workspaces": [
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd api && npm install && cd ../web && npm install",
+    "dev:api": "cd api && npm run dev",
+    "dev:web": "cd web && npm run dev",
+    "build:api": "cd api && npm run build",
+    "build:web": "cd web && npm run build",
+    "test": "cd api && npm test",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "clean": "rm -rf node_modules api/node_modules web/node_modules api/dist web/dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gobierno-hidalgo/panel-secretario.git"
+  },
+  "keywords": [
+    "gobierno",
+    "hidalgo",
+    "simplificacion",
+    "tramites",
+    "digitalizacion",
+    "coemere",
+    "dashboard",
+    "analytics"
+  ],
+  "author": "Gobierno del Estado de Hidalgo - COEMERE",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.4.2"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "panel-secretario-api",
+  "version": "1.0.0",
+  "description": "API REST para Panel de Simplificación - Gobierno de Hidalgo",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "NODE_ENV=test jest --coverage --detectOpenHandles",
+    "test:watch": "NODE_ENV=test jest --watch"
+  },
+  "keywords": [
+    "gobierno",
+    "hidalgo",
+    "simplificacion",
+    "tramites"
+  ],
+  "author": "Gobierno del Estado de Hidalgo - COEMERE",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "express": "4.21.0",
+    "pg": "^8.13.1",
+    "multer": "^1.4.5-lts.1",
+    "csv-parse": "^5.6.0",
+    "cors": "^2.8.5",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "dotenv": "^16.4.7",
+    "winston": "^3.17.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

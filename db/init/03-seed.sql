@@ -1,0 +1,5 @@
+-- Datos de Ejemplo (Seed)
+-- Panel Secretario - Gobierno de Hidalgo
+--
+-- Este archivo está intencionalmente vacío.
+-- Los datos se cargarán únicamente mediante la carga de archivos CSV por parte del usuario.
