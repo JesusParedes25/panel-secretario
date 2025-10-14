@@ -24,10 +24,6 @@ const Layout = ({ children }) => {
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: HomeIcon },
-    { name: 'Dependencias', href: '/dependencias', icon: BuildingOfficeIcon },
-    { name: 'Trámites', href: '/tramites', icon: DocumentTextIcon },
-    { name: 'Carga de Datos', href: '/carga', icon: ArrowUpTrayIcon },
-    { name: 'Acerca de', href: '/acerca', icon: InformationCircleIcon },
   ];
 
   const isActive = (path) => {
@@ -151,6 +147,15 @@ const Layout = ({ children }) => {
       <main className="content-wrapper container mx-auto px-4 py-8">
         {children}
       </main>
+
+      {/* Botón flotante para Carga de Datos */}
+      <Link
+        to="/carga"
+        className="fixed bottom-6 left-6 btn btn-circle btn-lg bg-gray-600 hover:bg-gray-700 border-none shadow-lg z-40 tooltip tooltip-right"
+        data-tip="Carga de Datos"
+      >
+        <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+      </Link>
 
       {/* Footer */}
       <footer className="footer footer-center p-10 bg-primary text-primary-content mt-16">
