@@ -30,12 +30,12 @@ const getResumenGlobal = async () => {
       total_dependencias: parseInt(data.total_dependencias) || 0,
       promedio_nivel_global: parseFloat(data.promedio_nivel_global) || 0,
       fases: [
-        { fase: 'F1', nombre: 'Trámites Intervenidos', total: parseInt(data.total_f1) || 0, porcentaje: parseFloat(data.porcentaje_f1) || 0 },
-        { fase: 'F2', nombre: 'Modelado', total: parseInt(data.total_f2) || 0, porcentaje: parseFloat(data.porcentaje_f2) || 0 },
-        { fase: 'F3', nombre: 'Reingeniería', total: parseInt(data.total_f3) || 0, porcentaje: parseFloat(data.porcentaje_f3) || 0 },
-        { fase: 'F4', nombre: 'Digitalización', total: parseInt(data.total_f4) || 0, porcentaje: parseFloat(data.porcentaje_f4) || 0 },
-        { fase: 'F5', nombre: 'Implementación', total: parseInt(data.total_f5) || 0, porcentaje: parseFloat(data.porcentaje_f5) || 0 },
-        { fase: 'F6', nombre: 'Liberación', total: parseInt(data.total_f6) || 0, porcentaje: parseFloat(data.porcentaje_f6) || 0 },
+        { fase: 'E1', nombre: 'Trámites Intervenidos', total: parseInt(data.total_f1) || 0, porcentaje: parseFloat(data.porcentaje_f1) || 0 },
+        { fase: 'E2', nombre: 'Modelado', total: parseInt(data.total_f2) || 0, porcentaje: parseFloat(data.porcentaje_f2) || 0 },
+        { fase: 'E3', nombre: 'Reingeniería', total: parseInt(data.total_f3) || 0, porcentaje: parseFloat(data.porcentaje_f3) || 0 },
+        { fase: 'E4', nombre: 'Digitalización', total: parseInt(data.total_f4) || 0, porcentaje: parseFloat(data.porcentaje_f4) || 0 },
+        { fase: 'E5', nombre: 'Implementación', total: parseInt(data.total_f5) || 0, porcentaje: parseFloat(data.porcentaje_f5) || 0 },
+        { fase: 'E6', nombre: 'Liberación', total: parseInt(data.total_f6) || 0, porcentaje: parseFloat(data.porcentaje_f6) || 0 },
       ],
     };
   } catch (error) {
@@ -89,6 +89,7 @@ const getResumenDependencias = async () => {
 const getTramites = async (filters = {}) => {
   try {
     const { dependencia, search, fase, page = 1, limit = 50 } = filters;
+    logger.info('getTramites filters:', { dependencia, search, fase, page, limit });
     
     let query = `
       SELECT
@@ -125,10 +126,13 @@ const getTramites = async (filters = {}) => {
       paramIndex++;
     }
 
-    // Filtro por fase
+    // Filtro por etapa (inclusivo/acumulativo)
     if (fase) {
       const faseInt = parseInt(fase);
+      logger.info('Aplicando filtro de fase:', { faseInt, tipoFase: typeof faseInt });
       if (faseInt >= 1 && faseInt <= 6) {
+        // Filtrar por trámites que TIENEN completada esta etapa
+        // (incluye los que también tienen etapas superiores)
         const faseColumn = `fase${faseInt}_${
           faseInt === 1 ? 'tramites_intervenidos' :
           faseInt === 2 ? 'modelado' :
@@ -136,8 +140,13 @@ const getTramites = async (filters = {}) => {
           faseInt === 4 ? 'digitalizacion' :
           faseInt === 5 ? 'implementacion' : 'liberacion'
         }`;
+        logger.info('Columna de fase:', { faseColumn });
         query += ` AND t.${faseColumn} = true`;
+      } else {
+        logger.warn('Fase fuera de rango:', { faseInt });
       }
+    } else {
+      logger.info('No se recibió parámetro fase');
     }
 
     // Contar total
@@ -180,7 +189,7 @@ const getKPIs = async () => {
       labels: resumenGlobal.fases.map((f) => f.nombre),
       datasets: [
         {
-          label: 'Trámites por Fase',
+          label: 'Trámites por Etapa',
           data: resumenGlobal.fases.map((f) => f.total),
           backgroundColor: [
             'rgba(159, 34, 65, 0.8)',
@@ -206,42 +215,42 @@ const getKPIs = async () => {
       labels: depsOrdenadas.map((d) => d.dependencia),
       datasets: [
         {
-          label: 'F6 - Liberación',
+          label: 'E6 - Liberación',
           data: depsOrdenadas.map((d) => d.fases.f6),
           backgroundColor: 'rgba(22, 163, 74, 0.9)', // Verde oscuro
           borderColor: 'rgba(22, 163, 74, 1)',
           borderWidth: 1,
         },
         {
-          label: 'F5 - Implementación',
+          label: 'E5 - Implementación',
           data: depsOrdenadas.map((d) => d.fases.f5),
           backgroundColor: 'rgba(34, 197, 94, 0.9)', // Verde
           borderColor: 'rgba(34, 197, 94, 1)',
           borderWidth: 1,
         },
         {
-          label: 'F4 - Digitalización',
+          label: 'E4 - Digitalización',
           data: depsOrdenadas.map((d) => d.fases.f4),
           backgroundColor: 'rgba(132, 204, 22, 0.9)', // Lima
           borderColor: 'rgba(132, 204, 22, 1)',
           borderWidth: 1,
         },
         {
-          label: 'F3 - Reingeniería',
+          label: 'E3 - Reingeniería',
           data: depsOrdenadas.map((d) => d.fases.f3),
           backgroundColor: 'rgba(251, 191, 36, 0.9)', // Amarillo
           borderColor: 'rgba(251, 191, 36, 1)',
           borderWidth: 1,
         },
         {
-          label: 'F2 - Modelado',
+          label: 'E2 - Modelado',
           data: depsOrdenadas.map((d) => d.fases.f2),
           backgroundColor: 'rgba(251, 146, 60, 0.9)', // Naranja
           borderColor: 'rgba(251, 146, 60, 1)',
           borderWidth: 1,
         },
         {
-          label: 'F1 - Intervenidos',
+          label: 'E1 - Intervenidos',
           data: depsOrdenadas.map((d) => d.fases.f1),
           backgroundColor: 'rgba(239, 68, 68, 0.9)', // Rojo
           borderColor: 'rgba(239, 68, 68, 1)',
@@ -292,19 +301,6 @@ const getKPIs = async () => {
 };
 
 /**
- * Obtiene trámites con geolocalización
- */
-const getTramitesGeo = async () => {
-  try {
-    const result = await db.query('SELECT * FROM v_tramites_geo');
-    return result.rows;
-  } catch (error) {
-    logger.error('Error obteniendo trámites geo', { error: error.message });
-    throw error;
-  }
-};
-
-/**
  * Exporta datos a CSV
  */
 const exportToCSV = async () => {
@@ -344,6 +340,5 @@ module.exports = {
   getResumenDependencias,
   getTramites,
   getKPIs,
-  getTramitesGeo,
   exportToCSV,
 };

@@ -38,13 +38,14 @@ SELECT
   COUNT(*) AS total_tramites,
   COUNT(DISTINCT dependencia_id) AS total_dependencias,
   ROUND(AVG(nivel_digitalizacion), 2) AS promedio_nivel_global,
+  -- Totales acumulativos (trámites que han alcanzado AL MENOS esta etapa)
   SUM(CASE WHEN fase1_tramites_intervenidos THEN 1 ELSE 0 END) AS total_f1,
   SUM(CASE WHEN fase2_modelado THEN 1 ELSE 0 END) AS total_f2,
   SUM(CASE WHEN fase3_reingenieria THEN 1 ELSE 0 END) AS total_f3,
   SUM(CASE WHEN fase4_digitalizacion THEN 1 ELSE 0 END) AS total_f4,
   SUM(CASE WHEN fase5_implementacion THEN 1 ELSE 0 END) AS total_f5,
   SUM(CASE WHEN fase6_liberacion THEN 1 ELSE 0 END) AS total_f6,
-  -- Porcentajes globales
+  -- Porcentajes globales acumulativos
   ROUND(100.0 * SUM(CASE WHEN fase1_tramites_intervenidos THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(*), 0), 2) AS porcentaje_f1,
   ROUND(100.0 * SUM(CASE WHEN fase2_modelado THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(*), 0), 2) AS porcentaje_f2,
   ROUND(100.0 * SUM(CASE WHEN fase3_reingenieria THEN 1 ELSE 0 END)::NUMERIC / NULLIF(COUNT(*), 0), 2) AS porcentaje_f3,
@@ -71,22 +72,7 @@ INNER JOIN dependencias d ON t.dependencia_id = d.id
 ORDER BY t.nivel_digitalizacion DESC, t.nombre
 LIMIT 10;
 
--- Vista: Trámites con Geolocalización
-CREATE OR REPLACE VIEW v_tramites_geo AS
-SELECT
-  t.id,
-  d.nombre AS dependencia,
-  t.nombre AS tramite,
-  t.nivel_digitalizacion,
-  ST_Y(t.geolocation) AS lat,
-  ST_X(t.geolocation) AS lng,
-  t.fase6_liberacion AS liberado
-FROM tramites t
-INNER JOIN dependencias d ON t.dependencia_id = d.id
-WHERE t.geolocation IS NOT NULL;
-
 -- Comentarios
 COMMENT ON VIEW v_resumen_dependencia IS 'Resumen ejecutivo por dependencia con KPIs y semáforo';
 COMMENT ON VIEW v_resumen_global IS 'KPIs globales del proceso de simplificación';
 COMMENT ON VIEW v_top_tramites IS 'Top 10 trámites con mayor nivel de digitalización';
-COMMENT ON VIEW v_tramites_geo IS 'Trámites con coordenadas geográficas para mapa';

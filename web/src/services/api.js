@@ -65,9 +65,6 @@ const apiService = {
   // KPIs para gráficas
   getKPIs: () => api.get('/kpis'),
 
-  // Trámites con geolocalización
-  getTramitesGeo: () => api.get('/tramites/geo'),
-
   // Subir archivo CSV
   uploadCSV: (file, onUploadProgress) => {
     const formData = new FormData();

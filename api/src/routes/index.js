@@ -95,9 +95,6 @@ router.get('/tramites', optionalApiKey, dataController.getTramites);
 // KPIs para gráficas - acceso público
 router.get('/kpis', optionalApiKey, dataController.getKPIs);
 
-// Trámites con geolocalización - acceso público
-router.get('/tramites/geo', optionalApiKey, dataController.getTramitesGeo);
-
 // ========== Exportación ==========
 router.get('/export/csv', optionalApiKey, dataController.exportCSV);
 

@@ -14,7 +14,6 @@ import {
 } from '@heroicons/react/24/outline';
 import apiService from '../services/api';
 import KPICard from '../components/KPICard';
-import MapView from '../components/MapView';
 import { formatNumber } from '../utils/formatters';
 
 const Dashboard = () => {
@@ -29,6 +28,10 @@ const Dashboard = () => {
   const [tramiteSortConfig, setTramiteSortConfig] = useState({ key: 'fase_maxima', direction: 'desc' });
   const [selectedFase, setSelectedFase] = useState(null);
   const [tramitesPorFase, setTramitesPorFase] = useState([]);
+  const [selectedGlobalEtapa, setSelectedGlobalEtapa] = useState(null);
+  const [tramitesPorEtapaGlobal, setTramitesPorEtapaGlobal] = useState([]);
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
+  const [modalSortConfig, setModalSortConfig] = useState({ key: 'tramite', direction: 'asc' });
 
   // Calcular score de calidad sin sesgo por cantidad
   const calculateQualityScore = useCallback((dep) => {
@@ -128,13 +131,64 @@ const Dashboard = () => {
       setSelectedFase(faseNum);
       const response = await apiService.getTramites({ dependencia: dependenciaNombre, fase: faseNum });
       const tramites = response.data?.data || response.data || [];
-      console.log(`Fase ${faseNum} - ${dependenciaNombre}:`, tramites.length, 'trámites');
+      console.log(`Etapa ${faseNum} - ${dependenciaNombre}:`, tramites.length, 'trámites');
       setTramitesPorFase(tramites);
     } catch (error) {
-      console.error('Error cargando trámites por fase:', error);
+      console.error('Error cargando trámites por etapa:', error);
       setTramitesPorFase([]);
     }
   };
+
+  const handleGlobalEtapaClick = async (etapaNum, etapaNombre) => {
+    try {
+      setSelectedGlobalEtapa({ num: etapaNum, nombre: etapaNombre });
+      setModalSearchTerm('');
+      setModalSortConfig({ key: 'tramite', direction: 'asc' });
+      // Traer TODOS los trámites (limit alto para evitar paginación)
+      const response = await apiService.getTramites({ fase: etapaNum, limit: 10000 });
+      const tramites = response.data?.data || response.data || [];
+      console.log(`Etapa ${etapaNum} global:`, tramites.length, 'trámites');
+      setTramitesPorEtapaGlobal(tramites);
+    } catch (error) {
+      console.error('Error cargando trámites por etapa global:', error);
+      setTramitesPorEtapaGlobal([]);
+    }
+  };
+
+  const handleModalSort = (key) => {
+    setModalSortConfig(prev => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc'
+    }));
+  };
+
+  // Filtrar y ordenar trámites del modal
+  const filteredAndSortedModalTramites = useMemo(() => {
+    if (!tramitesPorEtapaGlobal) return [];
+    
+    let filtered = tramitesPorEtapaGlobal.filter(tramite =>
+      tramite.tramite.toLowerCase().includes(modalSearchTerm.toLowerCase()) ||
+      tramite.dependencia.toLowerCase().includes(modalSearchTerm.toLowerCase())
+    );
+    
+    filtered.sort((a, b) => {
+      let aVal = a[modalSortConfig.key];
+      let bVal = b[modalSortConfig.key];
+      
+      if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal?.toLowerCase() || '';
+      }
+      
+      if (modalSortConfig.direction === 'asc') {
+        return aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+      } else {
+        return aVal < bVal ? 1 : aVal > bVal ? -1 : 0;
+      }
+    });
+    
+    return filtered;
+  }, [tramitesPorEtapaGlobal, modalSearchTerm, modalSortConfig]);
 
   useEffect(() => {
     loadDashboardData();
@@ -235,17 +289,23 @@ const Dashboard = () => {
           title="Trámites Liberados"
           value={resumenGlobal?.fases?.[5]?.total || 0}
           icon={ChartBarIcon}
-          subtitle="Fase 6 completada"
+          subtitle="Etapa 6 completada"
           color="success"
         />
       </div>
 
-      {/* Progreso por Fases */}
+      {/* Progreso por Etapas */}
       <div className="card-executive">
-        <h2 className="text-2xl font-bold mb-4">Avance por Fases</h2>
+        <h2 className="text-2xl font-bold mb-4">Avance por Etapas</h2>
+        <p className="text-sm text-gray-600 mb-4">Click en una etapa para ver todos los trámites</p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {resumenGlobal?.fases?.map((fase, index) => (
-            <div key={fase.fase} className="text-center">
+            <button
+              key={fase.fase}
+              onClick={() => handleGlobalEtapaClick(index + 1, fase.nombre)}
+              className="text-center transition-all hover:scale-105 hover:shadow-lg cursor-pointer"
+              disabled={fase.total === 0}
+            >
               <div className="relative mb-2">
                 <svg className="w-20 h-20 mx-auto transform -rotate-90">
                   <circle
@@ -278,7 +338,7 @@ const Dashboard = () => {
               <div className="text-xs font-bold mt-1 text-primary">
                 {formatNumber(fase.total)} trámites
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -612,9 +672,6 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Mapa */}
-      <MapView />
-
       {/* Modal de Detalle de Dependencia */}
       {selectedDep && (
         <div
@@ -673,18 +730,18 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Avance por Fases */}
+              {/* Avance por Etapas */}
               <div>
-                <h3 className="text-xl font-bold mb-6 text-center text-gray-800">Avance por Fases</h3>
-                <p className="text-sm text-gray-600 text-center mb-6">Click en una fase para ver los trámites</p>
+                <h3 className="text-xl font-bold mb-6 text-center text-gray-800">Avance por Etapas</h3>
+                <p className="text-sm text-gray-600 text-center mb-6">Click en una etapa para ver los trámites</p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   {[
-                    { fase: 'F1', nombre: 'Trámites Intervenidos', count: selectedDep.fases.f1, num: 1 },
-                    { fase: 'F2', nombre: 'Modelado', count: selectedDep.fases.f2, num: 2 },
-                    { fase: 'F3', nombre: 'Reingeniería', count: selectedDep.fases.f3, num: 3 },
-                    { fase: 'F4', nombre: 'Digitalización', count: selectedDep.fases.f4, num: 4 },
-                    { fase: 'F5', nombre: 'Implementación', count: selectedDep.fases.f5, num: 5 },
-                    { fase: 'F6', nombre: 'Liberación', count: selectedDep.fases.f6, num: 6 },
+                    { fase: 'E1', nombre: 'Trámites Intervenidos', count: selectedDep.fases.f1, num: 1 },
+                    { fase: 'E2', nombre: 'Modelado', count: selectedDep.fases.f2, num: 2 },
+                    { fase: 'E3', nombre: 'Reingeniería', count: selectedDep.fases.f3, num: 3 },
+                    { fase: 'E4', nombre: 'Digitalización', count: selectedDep.fases.f4, num: 4 },
+                    { fase: 'E5', nombre: 'Implementación', count: selectedDep.fases.f5, num: 5 },
+                    { fase: 'E6', nombre: 'Liberación', count: selectedDep.fases.f6, num: 6 },
                   ].map((item) => {
                     const percentage = selectedDep.total_tramites > 0 
                       ? ((item.count / selectedDep.total_tramites) * 100).toFixed(0) 
@@ -744,11 +801,11 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              {/* Lista de Trámites por Fase */}
+              {/* Lista de Trámites por Etapa */}
               {selectedFase && tramitesPorFase.length > 0 && (
                 <div className="bg-[#9F2241] bg-opacity-5 p-6 rounded-xl border-2 border-[#9F2241]">
                   <h3 className="text-lg font-bold mb-4 text-gray-800">
-                    Trámites en Fase {selectedFase} ({tramitesPorFase.length})
+                    Trámites en Etapa {selectedFase} ({tramitesPorFase.length})
                   </h3>
                   <div className="max-h-60 overflow-y-auto">
                     <ul className="space-y-2">
@@ -781,9 +838,9 @@ const Dashboard = () => {
               {/* Nota explicativa */}
               <div className="bg-[#9F2241] bg-opacity-5 p-4 rounded-lg border-l-4 border-[#9F2241]">
                 <p className="text-sm text-gray-700">
-                  <strong>Nota:</strong> Las fases son secuenciales. Un trámite debe completar una fase antes de pasar a la siguiente. 
-                  Los porcentajes mostrados indican la proporción de trámites que han alcanzado <strong>al menos</strong> esa fase.
-                  Click en cualquier fase para ver el listado de trámites.
+                  <strong>Nota:</strong> Las etapas son secuenciales. Un trámite debe completar una etapa antes de pasar a la siguiente. 
+                  Los porcentajes mostrados indican la proporción de trámites que han alcanzado <strong>al menos</strong> esa etapa.
+                  Click en cualquier etapa para ver el listado de trámites.
                 </p>
               </div>
 
@@ -798,6 +855,147 @@ const Dashboard = () => {
                   className="px-8 py-3 bg-gradient-to-r from-[#9F2241] to-[#691C32] text-white rounded-lg font-semibold hover:shadow-lg transition-all"
                 >
                   Volver al Dashboard
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Trámites por Etapa Global */}
+      {selectedGlobalEtapa && tramitesPorEtapaGlobal.length > 0 && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            setSelectedGlobalEtapa(null);
+            setTramitesPorEtapaGlobal([]);
+          }}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-[#9F2241] to-[#691C32] text-white p-6 sticky top-0 z-10 rounded-t-2xl">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h2 className="text-3xl font-bold">Etapa {selectedGlobalEtapa.num}: {selectedGlobalEtapa.nombre}</h2>
+                  <p className="text-white text-opacity-90 mt-2">
+                    {tramitesPorEtapaGlobal.length} trámites en esta etapa
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedGlobalEtapa(null);
+                    setTramitesPorEtapaGlobal([]);
+                  }}
+                  className="p-2 hover:bg-white hover:bg-opacity-20 rounded-full transition-colors"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              {/* Buscador */}
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Buscar trámite o dependencia..."
+                      className="input input-bordered w-full pr-10"
+                      value={modalSearchTerm}
+                      onChange={(e) => setModalSearchTerm(e.target.value)}
+                    />
+                    <MagnifyingGlassIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  </div>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {filteredAndSortedModalTramites.length} de {tramitesPorEtapaGlobal.length} trámites
+                </div>
+              </div>
+
+              {/* Tabla de Trámites */}
+              <div className="overflow-x-auto">
+                <table className="table table-zebra w-full">
+                  <thead className="bg-[#9F2241] text-white">
+                    <tr>
+                      <th className="text-center">#</th>
+                      <th 
+                        className="cursor-pointer hover:bg-[#691C32]"
+                        onClick={() => handleModalSort('tramite')}
+                      >
+                        Trámite {modalSortConfig.key === 'tramite' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th 
+                        className="cursor-pointer hover:bg-[#691C32]"
+                        onClick={() => handleModalSort('dependencia')}
+                      >
+                        Dependencia {modalSortConfig.key === 'dependencia' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th 
+                        className="cursor-pointer hover:bg-[#691C32] text-center"
+                        onClick={() => handleModalSort('nivel_digitalizacion')}
+                      >
+                        Nivel {modalSortConfig.key === 'nivel_digitalizacion' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
+                      </th>
+                      <th className="text-center">Avance</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAndSortedModalTramites.map((tramite, index) => (
+                      <tr key={index} className="hover:bg-gray-50">
+                        <td className="font-bold text-center">{index + 1}</td>
+                        <td className="font-medium">{tramite.tramite}</td>
+                        <td className="text-sm text-gray-600">{tramite.dependencia}</td>
+                        <td className="text-center">
+                          <span className="badge badge-lg bg-[#235B4E] text-white font-semibold">
+                            {tramite.nivel_digitalizacion}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="flex gap-1 justify-center">
+                            {[
+                              { num: 1, completada: tramite.fase1_tramites_intervenidos },
+                              { num: 2, completada: tramite.fase2_modelado },
+                              { num: 3, completada: tramite.fase3_reingenieria },
+                              { num: 4, completada: tramite.fase4_digitalizacion },
+                              { num: 5, completada: tramite.fase5_implementacion },
+                              { num: 6, completada: tramite.fase6_liberacion },
+                            ].map((etapa) => (
+                              <div
+                                key={etapa.num}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                  etapa.completada
+                                    ? 'bg-gradient-to-br from-[#9F2241] to-[#691C32] text-white'
+                                    : 'bg-gray-200 text-gray-400'
+                                }`}
+                                title={`Etapa ${etapa.num}${etapa.completada ? ' - Completada' : ''}`}
+                              >
+                                E{etapa.num}
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Botón Cerrar */}
+              <div className="mt-6 flex justify-center pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setSelectedGlobalEtapa(null);
+                    setTramitesPorEtapaGlobal([]);
+                    setModalSearchTerm('');
+                  }}
+                  className="px-8 py-3 bg-gradient-to-r from-[#9F2241] to-[#691C32] text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                >
+                  Cerrar
                 </button>
               </div>
             </div>

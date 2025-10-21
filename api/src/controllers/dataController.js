@@ -48,11 +48,12 @@ const getResumenDependencias = async (req, res, next) => {
  */
 const getTramites = async (req, res, next) => {
   try {
-    const { dependencia, search, page, limit } = req.query;
+    const { dependencia, search, fase, page, limit } = req.query;
     
     const filters = {
       dependencia,
       search,
+      fase,
       page: page || 1,
       limit: limit || 50,
     };
@@ -89,24 +90,6 @@ const getKPIs = async (req, res, next) => {
 };
 
 /**
- * GET /api/v1/tramites/geo
- * Obtiene trámites con geolocalización
- */
-const getTramitesGeo = async (req, res, next) => {
-  try {
-    const data = await dataService.getTramitesGeo();
-    
-    res.json({
-      success: true,
-      data,
-    });
-  } catch (error) {
-    logger.error('Error en getTramitesGeo', { error: error.message });
-    next(error);
-  }
-};
-
-/**
  * GET /api/v1/export/csv
  * Exporta datos actuales a CSV
  */
@@ -128,6 +111,5 @@ module.exports = {
   getResumenDependencias,
   getTramites,
   getKPIs,
-  getTramitesGeo,
   exportCSV,
 };

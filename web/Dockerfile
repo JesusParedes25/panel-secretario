@@ -4,6 +4,18 @@
 # Etapa 1: Build
 FROM node:20-alpine AS builder
 
+# Build arguments para variables de entorno
+ARG VITE_API_URL=/api/v1
+ARG VITE_API_KEY
+ARG VITE_APP_NAME="Panel de Simplificación - Gobierno de Hidalgo"
+ARG VITE_ENV=production
+
+# Convertir build args a env vars para Vite
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_API_KEY=$VITE_API_KEY
+ENV VITE_APP_NAME=$VITE_APP_NAME
+ENV VITE_ENV=$VITE_ENV
+
 WORKDIR /app
 
 # Copiar archivos de dependencias

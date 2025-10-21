@@ -109,7 +109,6 @@ app.get('/', (req, res) => {
       },
       tramites: 'GET /api/v1/tramites',
       kpis: 'GET /api/v1/kpis',
-      geo: 'GET /api/v1/tramites/geo',
       export: 'GET /api/v1/export/csv',
     },
   });

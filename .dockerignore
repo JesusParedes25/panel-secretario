@@ -4,8 +4,8 @@ node_modules
 npm-debug.log
 yarn-error.log
 
-# Environment
-.env
+# Environment (exclude root .env but allow web/.env)
+/.env
 .env.local
 .env.*.local
 
