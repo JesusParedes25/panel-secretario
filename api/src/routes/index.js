@@ -11,6 +11,7 @@ const path = require('path');
 const { verifyApiKey, optionalApiKey } = require('../middleware/auth');
 const uploadController = require('../controllers/uploadController');
 const dataController = require('../controllers/dataController');
+const goalsController = require('../controllers/goalsController');
 
 const router = express.Router();
 
@@ -94,6 +95,9 @@ router.get('/tramites', optionalApiKey, dataController.getTramites);
 
 // KPIs para gráficas - acceso público
 router.get('/kpis', optionalApiKey, dataController.getKPIs);
+
+// Metas y progreso por etapa - acceso público
+router.get('/goals', optionalApiKey, goalsController.getGoals);
 
 // ========== Exportación ==========
 router.get('/export/csv', optionalApiKey, dataController.exportCSV);

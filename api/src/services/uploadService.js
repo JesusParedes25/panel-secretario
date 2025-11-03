@@ -195,6 +195,12 @@ const processCSV = async (filePath, filename) => {
       try {
         await client.query('BEGIN');
 
+        // Eliminar todos los datos anteriores (resetear base de datos)
+        logger.info('Reseteando base de datos antes de cargar nuevos datos');
+        await client.query('DELETE FROM tramites');
+        await client.query('DELETE FROM dependencias');
+        logger.info('Base de datos reseteada correctamente');
+
         for (const record of records) {
           results.rowsRead++;
 

@@ -164,7 +164,7 @@ const DependenciasTable = ({ data }) => {
                   onClick={() => handleSort('nivel')}
                   className="flex items-center justify-center w-full hover:text-primary transition-colors"
                 >
-                  Nivel
+                  Nivel de Digitalización
                   <SortIcon columnKey="nivel" />
                 </button>
               </th>

@@ -149,7 +149,7 @@ const Dependencias = () => {
                 <span className="font-bold">{formatNumber(dep.total_tramites)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm opacity-70">Nivel Promedio:</span>
+                <span className="text-sm opacity-70">Nivel de digitalización:</span>
                 <span className="font-bold text-primary">{dep.promedio_nivel}</span>
               </div>
               <div className="flex justify-between">
@@ -179,7 +179,7 @@ const Dependencias = () => {
                   Trámites {sortConfig.key === 'total_tramites' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th className="text-center cursor-pointer" onClick={() => handleSort('promedio_nivel')}>
-                  Nivel Prom. {sortConfig.key === 'promedio_nivel' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                  Nivel Digit. {sortConfig.key === 'promedio_nivel' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                 </th>
                 <th className="text-center">F1</th>
                 <th className="text-center">F2</th>

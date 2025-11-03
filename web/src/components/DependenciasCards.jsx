@@ -102,7 +102,7 @@ const DependenciasCards = ({ data }) => {
               {/* Nivel promedio con barra */}
               <div className="space-y-1">
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-gray-600">Nivel Promedio</span>
+                  <span className="text-gray-600">Nivel de Digitalización</span>
                   <span className="font-semibold text-gray-800">{parseFloat(dep.promedio_nivel).toFixed(1)}/4.3</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
@@ -208,7 +208,7 @@ const DependenciasCards = ({ data }) => {
                     <div className="text-3xl font-bold text-purple-600">
                       {parseFloat(selectedDep.promedio_nivel).toFixed(1)}/4.3
                     </div>
-                    <div className="text-sm text-gray-600 mt-1">Nivel Promedio</div>
+                    <div className="text-sm text-gray-600 mt-1">Nivel de Digitalización Promedio</div>
                   </div>
                   <div className="w-full bg-purple-200 rounded-full h-2">
                     <div

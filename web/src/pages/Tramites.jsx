@@ -243,7 +243,7 @@ const Tramites = () => {
                 <tr>
                   <th>Trámite</th>
                   <th>Dependencia</th>
-                  <th className="text-center">Nivel</th>
+                  <th className="text-center">Nivel de Digitalización</th>
                   <th className="text-center">Fases</th>
                   <th>Última Actualización</th>
                 </tr>

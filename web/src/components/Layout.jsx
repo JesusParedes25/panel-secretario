@@ -23,7 +23,7 @@ const Layout = ({ children }) => {
   const [theme, setTheme] = useState('hidalgo');
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: HomeIcon },
+    // Navegación deshabilitada - solo existe la página principal
   ];
 
   const isActive = (path) => {
@@ -101,19 +101,9 @@ const Layout = ({ children }) => {
             </ul>
           </div>
 
-          {/* Theme Toggle */}
+          {/* Theme Toggle - Deshabilitado */}
           <div className="navbar-end">
-            <button
-              onClick={toggleTheme}
-              className="btn btn-ghost btn-circle"
-              aria-label="Toggle theme"
-            >
-              {theme === 'hidalgo' ? (
-                <MoonIcon className="h-6 w-6" />
-              ) : (
-                <SunIcon className="h-6 w-6" />
-              )}
-            </button>
+            {/* Toggle de tema deshabilitado hasta configurar tema oscuro */}
           </div>
         </div>
 

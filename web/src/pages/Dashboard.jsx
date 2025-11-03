@@ -8,7 +8,7 @@ import {
   ChartBarIcon, 
   BuildingOffice2Icon, 
   DocumentTextIcon,
-  ArrowTrendingUpIcon,
+  ComputerDesktopIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline';
@@ -20,6 +20,7 @@ const Dashboard = () => {
   const [resumenGlobal, setResumenGlobal] = useState(null);
   const [kpis, setKpis] = useState(null);
   const [dependencias, setDependencias] = useState(null);
+  const [goals, setGoals] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedDep, setSelectedDep] = useState(null);
@@ -197,15 +198,17 @@ const Dashboard = () => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      const [resumenRes, kpisRes, depsRes] = await Promise.all([
+      const [resumenRes, kpisRes, depsRes, goalsRes] = await Promise.all([
         apiService.getResumenGlobal(),
         apiService.getKPIs(),
         apiService.getResumenDependencias(),
+        apiService.getGoals(),
       ]);
 
       setResumenGlobal(resumenRes.data.data);
       setKpis(kpisRes.data.data);
       setDependencias(depsRes.data.data);
+      setGoals(goalsRes.data.data);
       setError(null);
     } catch (err) {
       console.error('Error cargando dashboard:', err);
@@ -240,22 +243,33 @@ const Dashboard = () => {
   return (
     <div className="space-y-8 animate-fade-in">
       {/* Header Institucional */}
-      <div className="card-executive bg-gradient-to-br from-blue-50 to-purple-50 border-l-4 border-primary">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl md:text-4xl font-bold text-primary mb-4">
-            Tablero de Seguimiento del Proceso de Simplificación de Trámites Estatales en Hidalgo
-          </h1>
-          <div className="prose max-w-none">
-            <p className="text-gray-700 leading-relaxed text-justify">
-              Este panel es administrado por la <strong>Comisión Estatal de Mejora Regulatoria (COEMERE)</strong> para dar seguimiento 
-              al avance de cada dependencia en el proceso de simplificación de trámites. Este proceso fue establecido por la COEMERE 
-              para la <strong>transformación digital del estado</strong>, en coherencia con los lineamientos de la 
-              <strong> Agencia de Transformación Digital y Telecomunicaciones</strong> del gobierno federal.
-            </p>
-            <p className="text-gray-600 text-sm mt-3">
-              El objetivo es modernizar y digitalizar los servicios gubernamentales para ofrecer una mejor experiencia 
-              a la ciudadanía hidalguense.
-            </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white via-gray-50 to-gray-100 shadow-xl border border-gray-200">
+        {/* Borde superior con color institucional */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#9f2241] via-[#691C32] to-[#9f2241]"></div>
+        
+        {/* Patrón decorativo sutil */}
+        <div className="absolute inset-0 opacity-[0.03]">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#9f2241] rounded-full blur-3xl transform translate-x-1/2 -translate-y-1/2"></div>
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-[#ddc9a3] rounded-full blur-3xl transform -translate-x-1/2 translate-y-1/2"></div>
+        </div>
+        
+        <div className="relative z-10 p-8 md:p-12">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-[#9f2241] to-[#691C32] bg-clip-text text-transparent mb-6 leading-tight">
+              Tablero de Seguimiento del Proceso de Simplificación de Trámites Estatales en Hidalgo
+            </h1>
+            <div className="space-y-4">
+              <p className="text-gray-700 leading-relaxed text-justify">
+                Este panel es administrado por la <strong className="text-[#9f2241] font-bold">Comisión Estatal de Mejora Regulatoria (COEMERE)</strong> para dar seguimiento 
+                al avance de cada dependencia en el proceso de simplificación de trámites. Este proceso fue establecido por la COEMERE 
+                para la <strong className="text-[#9f2241] font-bold">transformación digital del estado</strong>, en coherencia con los lineamientos de la 
+                <strong className="text-[#9f2241] font-bold"> Agencia de Transformación Digital y Telecomunicaciones</strong> del gobierno federal.
+              </p>
+              <p className="text-gray-600 text-sm">
+                El objetivo es modernizar y digitalizar los servicios gubernamentales para ofrecer una mejor experiencia 
+                a la ciudadanía hidalguense.
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -267,21 +281,23 @@ const Dashboard = () => {
           value={resumenGlobal?.total_tramites || 0}
           icon={DocumentTextIcon}
           subtitle="Trámites en proceso de simplificación"
-          color="primary"
+          color="#9f2241"
+          showProgressBar={true}
+          maxValue={goals?.goals?.total || 300}
         />
         <KPICard
           title="Dependencias"
           value={resumenGlobal?.total_dependencias || 0}
           icon={BuildingOffice2Icon}
-          subtitle="Instituciones participantes"
-          color="secondary"
+          subtitle="Secretarías participantes"
+          color="#ddc9a3"
         />
         <KPICard
-          title="Nivel Promedio"
+          title="Nivel Promedio de Digitalización"
           value={resumenGlobal?.promedio_nivel_global || 0}
-          icon={ArrowTrendingUpIcon}
-          subtitle="De digitalización general"
-          color="accent"
+          icon={ComputerDesktopIcon}
+          subtitle="De los Trámites en proceso de simplificación"
+          color="primary"
           showProgressBar={true}
           maxValue={4.3}
         />
@@ -290,56 +306,63 @@ const Dashboard = () => {
           value={resumenGlobal?.fases?.[5]?.total || 0}
           icon={ChartBarIcon}
           subtitle="Etapa 6 completada"
-          color="success"
+          color="#235b4e"
         />
       </div>
 
       {/* Progreso por Etapas */}
       <div className="card-executive">
         <h2 className="text-2xl font-bold mb-4">Avance por Etapas</h2>
-        <p className="text-sm text-gray-600 mb-4">Click en una etapa para ver todos los trámites</p>
+        <p className="text-sm text-gray-600 mb-4">Click en una etapa para ver todos los trámites. Porcentajes basados en metas 2025.</p>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {resumenGlobal?.fases?.map((fase, index) => (
-            <button
-              key={fase.fase}
-              onClick={() => handleGlobalEtapaClick(index + 1, fase.nombre)}
-              className="text-center transition-all hover:scale-105 hover:shadow-lg cursor-pointer"
-              disabled={fase.total === 0}
-            >
-              <div className="relative mb-2">
-                <svg className="w-20 h-20 mx-auto transform -rotate-90">
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="36"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
-                    className="text-base-300"
-                  />
-                  <circle
-                    cx="40"
-                    cy="40"
-                    r="36"
-                    stroke="currentColor"
-                    strokeWidth="8"
-                    fill="transparent"
-                    strokeDasharray={`${2 * Math.PI * 36}`}
-                    strokeDashoffset={`${2 * Math.PI * 36 * (1 - fase.porcentaje / 100)}`}
-                    className="text-primary transition-all duration-1000"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-lg font-bold">{fase.porcentaje.toFixed(0)}%</span>
+          {goals?.progress && Object.entries(goals.progress).map(([etapaKey, etapaData], index) => {
+            const etapaNum = index + 1;
+            const etapaNombre = resumenGlobal?.fases?.[index]?.nombre || `Etapa ${etapaNum}`;
+            return (
+              <button
+                key={etapaKey}
+                onClick={() => handleGlobalEtapaClick(etapaNum, etapaNombre)}
+                className="text-center transition-all hover:scale-105 hover:shadow-lg cursor-pointer"
+                disabled={etapaData.actual === 0}
+              >
+                <div className="relative mb-2">
+                  <svg className="w-20 h-20 mx-auto transform -rotate-90">
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="transparent"
+                      className="text-base-300"
+                    />
+                    <circle
+                      cx="40"
+                      cy="40"
+                      r="36"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="transparent"
+                      strokeDasharray={`${2 * Math.PI * 36}`}
+                      strokeDashoffset={`${2 * Math.PI * 36 * (1 - etapaData.porcentaje / 100)}`}
+                      className="text-primary transition-all duration-1000"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-lg font-bold">{etapaData.porcentaje.toFixed(0)}%</span>
+                  </div>
                 </div>
-              </div>
-              <div className="font-semibold text-sm">{fase.fase}</div>
-              <div className="text-xs opacity-70 mt-1">{fase.nombre}</div>
-              <div className="text-xs font-bold mt-1 text-primary">
-                {formatNumber(fase.total)} trámites
-              </div>
-            </button>
-          ))}
+                <div className="font-semibold text-sm">E{etapaNum}</div>
+                <div className="text-xs opacity-70 mt-1">{etapaNombre}</div>
+                <div className="text-xs font-bold mt-1 text-primary">
+                  {formatNumber(etapaData.actual)} / {formatNumber(etapaData.meta)}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  Meta 2025
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -399,7 +422,7 @@ const Dashboard = () => {
                   <span className="font-bold">{formatNumber(dep.total_tramites)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm opacity-70">Nivel Promedio:</span>
+                  <span className="text-sm opacity-70">Nivel de digitalización:</span>
                   <span className="font-bold text-primary">{dep.promedio_nivel}</span>
                 </div>
                 <div className="flex justify-between">
@@ -601,7 +624,7 @@ const Dashboard = () => {
                     onClick={() => handleTramiteSort('nivel_digitalizacion')}
                   >
                     <div className="flex items-center justify-center gap-2">
-                      Nivel
+                      Nivel de Digitalización
                       {tramiteSortConfig.key === 'nivel_digitalizacion' && (
                         <span>{tramiteSortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
@@ -815,7 +838,7 @@ const Dashboard = () => {
                             <div className="flex-1">
                               <p className="font-medium text-gray-900">{tramite.tramite}</p>
                               <p className="text-xs text-gray-500 mt-1">
-                                Nivel: <span className="font-semibold">{tramite.nivel_digitalizacion}</span>
+                                Nivel de digitalización: <span className="font-semibold">{tramite.nivel_digitalizacion}</span>
                               </p>
                             </div>
                           </div>
@@ -935,11 +958,11 @@ const Dashboard = () => {
                       >
                         Dependencia {modalSortConfig.key === 'dependencia' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th 
+                      <th
                         className="cursor-pointer hover:bg-[#691C32] text-center"
                         onClick={() => handleModalSort('nivel_digitalizacion')}
                       >
-                        Nivel {modalSortConfig.key === 'nivel_digitalizacion' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
+                        Nivel de Digitalización {modalSortConfig.key === 'nivel_digitalizacion' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
                       </th>
                       <th className="text-center">Avance</th>
                     </tr>

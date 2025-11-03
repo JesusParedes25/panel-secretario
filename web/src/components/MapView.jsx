@@ -93,7 +93,7 @@ const MapView = () => {
                 <h4 className="font-bold text-sm mb-1">{tramite.tramite}</h4>
                 <p className="text-xs opacity-70 mb-2">{tramite.dependencia}</p>
                 <div className="badge badge-sm">
-                  Nivel: {tramite.nivel_digitalizacion}
+                  Nivel de digitalización: {tramite.nivel_digitalizacion}
                 </div>
                 {tramite.liberado && (
                   <div className="badge badge-success badge-sm ml-1">

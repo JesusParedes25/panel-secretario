@@ -65,6 +65,9 @@ const apiService = {
   // KPIs para gráficas
   getKPIs: () => api.get('/kpis'),
 
+  // Obtener metas y progreso por etapa
+  getGoals: () => api.get('/goals'),
+
   // Subir archivo CSV
   uploadCSV: (file, onUploadProgress) => {
     const formData = new FormData();
