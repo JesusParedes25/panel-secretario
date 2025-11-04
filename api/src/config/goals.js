@@ -14,9 +14,9 @@ const GOALS_2025 = {
   etapa1: parseInt(process.env.GOAL_ETAPA1 || '300'),  // Trámites Intervenidos
   etapa2: parseInt(process.env.GOAL_ETAPA2 || '300'),  // Modelado
   etapa3: parseInt(process.env.GOAL_ETAPA3 || '150'),  // Reingeniería
-  etapa4: parseInt(process.env.GOAL_ETAPA4 || '100'),  // Digitalización
-  etapa5: parseInt(process.env.GOAL_ETAPA5 || '100'),  // Implementación
-  etapa6: parseInt(process.env.GOAL_ETAPA6 || '100'),  // Liberación
+  etapa4: parseInt(process.env.GOAL_ETAPA4 || '75'),  // Digitalización
+  etapa5: parseInt(process.env.GOAL_ETAPA5 || '75'),  // Implementación
+  etapa6: parseInt(process.env.GOAL_ETAPA6 || '75'),  // Liberación
 };
 
 /**
