@@ -35,6 +35,7 @@ Thumbs.db
 # Docker
 *.db
 postgres-data/
+docker-compose.override.yml
 
 # Uploads
 uploads/
@@ -54,3 +55,4 @@ coverage/
 *.bak
 *.tmp
 .cache/
+

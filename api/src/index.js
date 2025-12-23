@@ -13,6 +13,7 @@ const path = require('path');
 const logger = require('./config/logger');
 const routes = require('./routes');
 const { errorHandler, notFound } = require('./middleware/errorHandler');
+const authService = require('./services/authService');
 
 // Crear directorio de uploads si no existe
 const uploadDir = process.env.UPLOAD_DIR || '/tmp/uploads';
@@ -119,11 +120,18 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ========== Iniciar Servidor ==========
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
   logger.info(`🚀 Servidor API iniciado en puerto ${PORT}`, {
     env: process.env.NODE_ENV || 'development',
     port: PORT,
   });
+  
+  // Inicializar usuario admin por defecto
+  try {
+    await authService.initDefaultAdmin();
+  } catch (error) {
+    logger.error('Error inicializando admin', { error: error.message });
+  }
 });
 
 // Manejo de señales de cierre

@@ -101,9 +101,8 @@ const Layout = ({ children }) => {
             </ul>
           </div>
 
-          {/* Theme Toggle - Deshabilitado */}
+          {/* Espacio vacío en navbar-end */}
           <div className="navbar-end">
-            {/* Toggle de tema deshabilitado hasta configurar tema oscuro */}
           </div>
         </div>
 
@@ -138,13 +137,13 @@ const Layout = ({ children }) => {
         {children}
       </main>
 
-      {/* Botón flotante para Carga de Datos */}
+      {/* Botón flotante para Carga de Datos - Solo ícono */}
       <Link
         to="/carga"
-        className="fixed bottom-6 left-6 btn btn-circle btn-lg bg-gray-600 hover:bg-gray-700 border-none shadow-lg z-40 tooltip tooltip-right"
-        data-tip="Carga de Datos"
+        className="fixed bottom-4 left-4 p-2.5 bg-white/70 hover:bg-white text-gray-500 hover:text-primary rounded-full shadow-sm hover:shadow-md border border-gray-200/50 transition-all duration-200 z-40 backdrop-blur-sm"
+        title="Cargar datos CSV"
       >
-        <ArrowUpTrayIcon className="h-6 w-6 text-white" />
+        <ArrowUpTrayIcon className="h-4 w-4" />
       </Link>
 
       {/* Footer */}

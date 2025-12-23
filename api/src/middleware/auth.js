@@ -1,9 +1,65 @@
 /**
- * Middleware de Autenticación por API Key
+ * Middleware de Autenticación por API Key y JWT
  * Panel Secretario - Gobierno de Hidalgo
  */
 
 const logger = require('../config/logger');
+const authService = require('../services/authService');
+
+/**
+ * Verifica token JWT en el header Authorization
+ */
+const verifyJWT = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      error: 'Token de acceso requerido',
+    });
+  }
+
+  const decoded = authService.verifyToken(token);
+  if (!decoded) {
+    return res.status(403).json({
+      success: false,
+      error: 'Token inválido o expirado',
+    });
+  }
+
+  req.user = decoded;
+  next();
+};
+
+/**
+ * Verifica que el usuario sea administrador
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.rol !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      error: 'Se requieren permisos de administrador',
+    });
+  }
+  next();
+};
+
+/**
+ * JWT opcional - no bloquea si falta, solo valida si existe
+ */
+const optionalJWT = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token) {
+    const decoded = authService.verifyToken(token);
+    if (decoded) {
+      req.user = decoded;
+    }
+  }
+  next();
+};
 
 /**
  * Verifica la API Key en el header x-api-key
@@ -62,4 +118,7 @@ const optionalApiKey = (req, res, next) => {
 module.exports = {
   verifyApiKey,
   optionalApiKey,
+  verifyJWT,
+  requireAdmin,
+  optionalJWT,
 };

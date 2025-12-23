@@ -15,6 +15,8 @@ const KPICard = ({
   color = 'primary',
   showProgressBar = false,
   maxValue = 100,
+  showPercentOfMax = false,
+  progressLabel = null,
 }) => {
   const colorConfig = {
     primary: {
@@ -138,9 +140,20 @@ const KPICard = ({
                 </div>
               )}
             </div>
-            <div className="text-xs text-gray-500 mt-1.5 text-right">
-              Meta 2025: {maxValue}
-            </div>
+            {progressLabel ? (
+              <div className="text-xs text-gray-500 mt-1.5 text-right">
+                {progressLabel}
+              </div>
+            ) : (
+              <div className="flex justify-between text-xs text-gray-500 mt-1.5">
+                {showPercentOfMax && (
+                  <span className="font-semibold">
+                    {((parseFloat(value) / maxValue) * 100).toFixed(1)}% de la meta
+                  </span>
+                )}
+                <span className={showPercentOfMax ? '' : 'ml-auto'}>Meta 2025: {maxValue}</span>
+              </div>
+            )}
           </div>
         )}
         

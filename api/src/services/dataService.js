@@ -8,34 +8,60 @@ const logger = require('../config/logger');
 
 /**
  * Obtiene el resumen global de KPIs
+ * Soporta filtrado por año (opcional)
  */
-const getResumenGlobal = async () => {
+const getResumenGlobal = async (anio = null) => {
   try {
-    const result = await db.query('SELECT * FROM v_resumen_global');
+    let whereClause = '';
+    let params = [];
+    
+    if (anio && anio !== 'all') {
+      whereClause = 'WHERE t.anio = $1';
+      params = [parseInt(anio)];
+    }
+
+    const result = await db.query(`
+      SELECT
+        COUNT(*) AS total_tramites,
+        COUNT(DISTINCT d.id) AS total_dependencias,
+        COALESCE(AVG(t.nivel_digitalizacion), 0) AS promedio_nivel_global,
+        COALESCE(SUM(t.s) + SUM(t.r), 0) AS total_acciones,
+        SUM(CASE WHEN t.fase1_tramites_intervenidos THEN 1 ELSE 0 END) AS total_f1,
+        SUM(CASE WHEN t.fase2_modelado THEN 1 ELSE 0 END) AS total_f2,
+        SUM(CASE WHEN t.fase3_reingenieria THEN 1 ELSE 0 END) AS total_f3,
+        SUM(CASE WHEN t.fase4_digitalizacion THEN 1 ELSE 0 END) AS total_f4,
+        SUM(CASE WHEN t.fase5_implementacion THEN 1 ELSE 0 END) AS total_f5,
+        SUM(CASE WHEN t.fase6_liberacion THEN 1 ELSE 0 END) AS total_f6
+      FROM tramites t
+      JOIN dependencias d ON t.dependencia_id = d.id
+      ${whereClause}
+    `, params);
     
     if (result.rows.length === 0) {
       return {
         total_tramites: 0,
         total_dependencias: 0,
         promedio_nivel_global: 0,
+        total_acciones: 0,
         fases: [],
-        porcentajes: [],
       };
     }
 
     const data = result.rows[0];
+    const totalTramites = parseInt(data.total_tramites) || 1;
 
     return {
       total_tramites: parseInt(data.total_tramites) || 0,
       total_dependencias: parseInt(data.total_dependencias) || 0,
       promedio_nivel_global: parseFloat(data.promedio_nivel_global) || 0,
+      total_acciones: parseInt(data.total_acciones) || 0,
       fases: [
-        { fase: 'E1', nombre: 'Trámites Intervenidos', total: parseInt(data.total_f1) || 0, porcentaje: parseFloat(data.porcentaje_f1) || 0 },
-        { fase: 'E2', nombre: 'Modelado', total: parseInt(data.total_f2) || 0, porcentaje: parseFloat(data.porcentaje_f2) || 0 },
-        { fase: 'E3', nombre: 'Reingeniería', total: parseInt(data.total_f3) || 0, porcentaje: parseFloat(data.porcentaje_f3) || 0 },
-        { fase: 'E4', nombre: 'Digitalización', total: parseInt(data.total_f4) || 0, porcentaje: parseFloat(data.porcentaje_f4) || 0 },
-        { fase: 'E5', nombre: 'Implementación', total: parseInt(data.total_f5) || 0, porcentaje: parseFloat(data.porcentaje_f5) || 0 },
-        { fase: 'E6', nombre: 'Liberación', total: parseInt(data.total_f6) || 0, porcentaje: parseFloat(data.porcentaje_f6) || 0 },
+        { fase: 'E1', nombre: 'Trámites Intervenidos', total: parseInt(data.total_f1) || 0, porcentaje: ((parseInt(data.total_f1) || 0) / totalTramites * 100).toFixed(1) },
+        { fase: 'E2', nombre: 'Modelado', total: parseInt(data.total_f2) || 0, porcentaje: ((parseInt(data.total_f2) || 0) / totalTramites * 100).toFixed(1) },
+        { fase: 'E3', nombre: 'Reingeniería', total: parseInt(data.total_f3) || 0, porcentaje: ((parseInt(data.total_f3) || 0) / totalTramites * 100).toFixed(1) },
+        { fase: 'E4', nombre: 'Digitalización', total: parseInt(data.total_f4) || 0, porcentaje: ((parseInt(data.total_f4) || 0) / totalTramites * 100).toFixed(1) },
+        { fase: 'E5', nombre: 'Implementación', total: parseInt(data.total_f5) || 0, porcentaje: ((parseInt(data.total_f5) || 0) / totalTramites * 100).toFixed(1) },
+        { fase: 'E6', nombre: 'Liberación', total: parseInt(data.total_f6) || 0, porcentaje: ((parseInt(data.total_f6) || 0) / totalTramites * 100).toFixed(1) },
       ],
     };
   } catch (error) {
@@ -59,6 +85,7 @@ const getResumenDependencias = async () => {
       dependencia: row.dependencia,
       total_tramites: parseInt(row.total_tramites) || 0,
       promedio_nivel: parseFloat(row.promedio_nivel) || 0,
+      total_acciones: parseInt(row.total_acciones) || 0,
       fases: {
         f1: parseInt(row.f1) || 0,
         f2: parseInt(row.f2) || 0,
@@ -103,6 +130,8 @@ const getTramites = async (filters = {}) => {
         t.fase4_digitalizacion,
         t.fase5_implementacion,
         t.fase6_liberacion,
+        t.s,
+        t.r,
         t.updated_at
       FROM tramites t
       INNER JOIN dependencias d ON t.dependencia_id = d.id
@@ -273,6 +302,8 @@ const getKPIs = async () => {
         t.fase4_digitalizacion,
         t.fase5_implementacion,
         t.fase6_liberacion,
+        t.s,
+        t.r,
         (
           CASE WHEN t.fase6_liberacion THEN 6
                WHEN t.fase5_implementacion THEN 5
@@ -315,17 +346,19 @@ const exportToCSV = async () => {
         t.fase3_reingenieria::int AS fase3_reingenieria,
         t.fase4_digitalizacion::int AS fase4_digitalizacion,
         t.fase5_implementacion::int AS fase5_implementacion,
-        t.fase6_liberacion::int AS fase6_liberacion
+        t.fase6_liberacion::int AS fase6_liberacion,
+        t.s,
+        t.r
       FROM tramites t
       INNER JOIN dependencias d ON t.dependencia_id = d.id
       ORDER BY d.nombre, t.nombre
     `);
 
     // Generar CSV
-    let csv = 'dependencia,tramite,nivel_digitalizacion,fase1_tramites_intervenidos,fase2_modelado,fase3_reingenieria,fase4_digitalizacion,fase5_implementacion,fase6_liberacion\n';
+    let csv = 'dependencia,tramite,nivel_digitalizacion,fase1_tramites_intervenidos,fase2_modelado,fase3_reingenieria,fase4_digitalizacion,fase5_implementacion,fase6_liberacion,s,r\n';
     
     result.rows.forEach((row) => {
-      csv += `"${row.dependencia}","${row.tramite}",${row.nivel_digitalizacion},${row.fase1_tramites_intervenidos},${row.fase2_modelado},${row.fase3_reingenieria},${row.fase4_digitalizacion},${row.fase5_implementacion},${row.fase6_liberacion}\n`;
+      csv += `"${row.dependencia}","${row.tramite}",${row.nivel_digitalizacion},${row.fase1_tramites_intervenidos},${row.fase2_modelado},${row.fase3_reingenieria},${row.fase4_digitalizacion},${row.fase5_implementacion},${row.fase6_liberacion},${row.s},${row.r}\n`;
     });
 
     return csv;

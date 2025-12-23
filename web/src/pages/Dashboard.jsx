@@ -33,6 +33,11 @@ const Dashboard = () => {
   const [tramitesPorEtapaGlobal, setTramitesPorEtapaGlobal] = useState([]);
   const [modalSearchTerm, setModalSearchTerm] = useState('');
   const [modalSortConfig, setModalSortConfig] = useState({ key: 'tramite', direction: 'asc' });
+  const [depSortAsc, setDepSortAsc] = useState(false); // false = mejor primero (desc)
+  
+  // Estado para filtro de año
+  const [selectedAnio, setSelectedAnio] = useState('all');
+  const [aniosDisponibles, setAniosDisponibles] = useState([]);
 
   // Calcular score de calidad sin sesgo por cantidad
   const calculateQualityScore = useCallback((dep) => {
@@ -69,15 +74,25 @@ const Dashboard = () => {
       dep.dependencia.toLowerCase().includes(searchTerm.toLowerCase())
     );
     
-    // Ordenar por score de calidad (mayor primero)
+    // Ordenar por semáforo (verde > ambar > rojo) y luego por score
+    const semaforoOrder = { verde: 0, ambar: 1, rojo: 2 };
     filtered.sort((a, b) => {
+      const orderA = semaforoOrder[a.semaforo] ?? 3;
+      const orderB = semaforoOrder[b.semaforo] ?? 3;
+      
+      // Primero por semáforo
+      if (orderA !== orderB) {
+        return depSortAsc ? orderB - orderA : orderA - orderB;
+      }
+      
+      // Dentro del mismo semáforo, por score de calidad
       const scoreA = calculateQualityScore(a);
       const scoreB = calculateQualityScore(b);
-      return scoreB - scoreA;
+      return depSortAsc ? scoreA - scoreB : scoreB - scoreA;
     });
     
     return filtered;
-  }, [dependencias, searchTerm, calculateQualityScore]);
+  }, [dependencias, searchTerm, calculateQualityScore, depSortAsc]);
 
   // Filtrar y ordenar trámites
   const filteredAndSortedTramites = useMemo(() => {
@@ -89,25 +104,44 @@ const Dashboard = () => {
       tramite.dependencia.toLowerCase().includes(tramiteSearchTerm.toLowerCase())
     );
     
-    // Calcular fase máxima para cada trámite
-    filtered = filtered.map(t => ({
-      ...t,
-      fase_maxima: t.fase6_liberacion ? 6 :
-                   t.fase5_implementacion ? 5 :
-                   t.fase4_digitalizacion ? 4 :
-                   t.fase3_reingenieria ? 3 :
-                   t.fase2_modelado ? 2 :
-                   t.fase1_tramites_intervenidos ? 1 : 0
-    }));
-    
-    // Ordenar
-    filtered.sort((a, b) => {
-      let aVal = a[tramiteSortConfig.key];
-      let bVal = b[tramiteSortConfig.key];
+    // Calcular fase máxima y semáforo para cada trámite
+    filtered = filtered.map(t => {
+      const faseMax = t.fase6_liberacion ? 6 :
+                      t.fase5_implementacion ? 5 :
+                      t.fase4_digitalizacion ? 4 :
+                      t.fase3_reingenieria ? 3 :
+                      t.fase2_modelado ? 2 :
+                      t.fase1_tramites_intervenidos ? 1 : 0;
+      const totalAcciones = (parseInt(t.s) || 0) + (parseInt(t.r) || 0);
       
-      if (typeof aVal === 'string') {
-        aVal = aVal.toLowerCase();
-        bVal = bVal?.toLowerCase() || '';
+      // Semáforo: Verde (E5-E6 o E3-E4 con acciones), Ambar (E3-E4 o con acciones), Rojo (resto)
+      let semaforo = 'rojo';
+      if (faseMax >= 5 || (faseMax >= 3 && totalAcciones > 0)) {
+        semaforo = 'verde';
+      } else if (faseMax >= 3 || totalAcciones > 0) {
+        semaforo = 'ambar';
+      }
+      
+      return { ...t, fase_maxima: faseMax, total_acciones: totalAcciones, semaforo };
+    });
+    
+    // Ordenar por el criterio seleccionado
+    const semaforoOrder = { verde: 0, ambar: 1, rojo: 2 };
+    filtered.sort((a, b) => {
+      let aVal, bVal;
+      
+      // Manejo especial para semáforo (ordenar como verde > ambar > rojo)
+      if (tramiteSortConfig.key === 'semaforo') {
+        aVal = semaforoOrder[a.semaforo] ?? 3;
+        bVal = semaforoOrder[b.semaforo] ?? 3;
+      } else {
+        aVal = a[tramiteSortConfig.key];
+        bVal = b[tramiteSortConfig.key];
+        
+        if (typeof aVal === 'string') {
+          aVal = aVal.toLowerCase();
+          bVal = bVal?.toLowerCase() || '';
+        }
       }
       
       if (tramiteSortConfig.direction === 'asc') {
@@ -193,22 +227,30 @@ const Dashboard = () => {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [selectedAnio]);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      const anioParam = selectedAnio === 'all' ? null : selectedAnio;
+      
       const [resumenRes, kpisRes, depsRes, goalsRes] = await Promise.all([
-        apiService.getResumenGlobal(),
+        apiService.getResumenGlobal(anioParam),
         apiService.getKPIs(),
-        apiService.getResumenDependencias(),
-        apiService.getGoals(),
+        apiService.getResumenDependencias(anioParam),
+        apiService.getGoals(anioParam),
       ]);
 
       setResumenGlobal(resumenRes.data.data);
       setKpis(kpisRes.data.data);
       setDependencias(depsRes.data.data);
       setGoals(goalsRes.data.data);
+      
+      // Actualizar años disponibles desde la respuesta de goals
+      if (goalsRes.data.data?.aniosDisponibles) {
+        setAniosDisponibles(goalsRes.data.data.aniosDisponibles);
+      }
+      
       setError(null);
     } catch (err) {
       console.error('Error cargando dashboard:', err);
@@ -274,6 +316,27 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Selector de Año */}
+      {aniosDisponibles.length > 1 && (
+        <div className="flex items-center justify-end gap-3 bg-base-100 rounded-lg p-3 shadow-sm border">
+          <span className="text-sm font-medium text-gray-600">Ver datos de:</span>
+          <select
+            className="select select-bordered select-sm w-48"
+            value={selectedAnio}
+            onChange={(e) => setSelectedAnio(e.target.value)}
+          >
+            <option value="all">
+              {aniosDisponibles.join('-')} (Acumulado)
+            </option>
+            {aniosDisponibles.map((anio) => (
+              <option key={anio} value={anio}>
+                Solo {anio}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* KPIs Principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <KPICard
@@ -284,6 +347,7 @@ const Dashboard = () => {
           color="#9f2241"
           showProgressBar={true}
           maxValue={goals?.goals?.total || 300}
+          showPercentOfMax={true}
         />
         <KPICard
           title="Dependencias"
@@ -299,71 +363,200 @@ const Dashboard = () => {
           subtitle="De los Trámites en proceso de simplificación"
           color="primary"
           showProgressBar={true}
-          maxValue={4.3}
+          maxValue={4}
+          progressLabel="Nivel máximo: 4"
         />
         <KPICard
-          title="Trámites Liberados"
-          value={resumenGlobal?.fases?.[5]?.total || 0}
+          title="Acciones Implementadas"
+          value={resumenGlobal?.total_acciones || 0}
           icon={ChartBarIcon}
-          subtitle="Etapa 6 completada"
+          subtitle="Simplificación + Regulación"
           color="#235b4e"
+          showProgressBar={true}
+          maxValue={goals?.goals?.acciones || 150}
+          showPercentOfMax={true}
         />
       </div>
 
-      {/* Progreso por Etapas */}
-      <div className="card-executive">
-        <h2 className="text-2xl font-bold mb-4">Avance por Etapas</h2>
-        <p className="text-sm text-gray-600 mb-4">Click en una etapa para ver todos los trámites. Porcentajes basados en metas 2025.</p>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {goals?.progress && Object.entries(goals.progress).map(([etapaKey, etapaData], index) => {
-            const etapaNum = index + 1;
-            const etapaNombre = resumenGlobal?.fases?.[index]?.nombre || `Etapa ${etapaNum}`;
-            return (
-              <button
-                key={etapaKey}
-                onClick={() => handleGlobalEtapaClick(etapaNum, etapaNombre)}
-                className="text-center transition-all hover:scale-105 hover:shadow-lg cursor-pointer"
-                disabled={etapaData.actual === 0}
-              >
-                <div className="relative mb-2">
-                  <svg className="w-20 h-20 mx-auto transform -rotate-90">
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="36"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="transparent"
-                      className="text-base-300"
-                    />
-                    <circle
-                      cx="40"
-                      cy="40"
-                      r="36"
-                      stroke="currentColor"
-                      strokeWidth="8"
-                      fill="transparent"
-                      strokeDasharray={`${2 * Math.PI * 36}`}
-                      strokeDashoffset={`${2 * Math.PI * 36 * (1 - etapaData.porcentaje / 100)}`}
-                      className="text-primary transition-all duration-1000"
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold">{etapaData.porcentaje.toFixed(0)}%</span>
-                  </div>
+      {/* Progreso por Etapas - Diseño Pipeline */}
+      <div className="card-executive overflow-hidden">
+        <h2 className="text-2xl font-bold mb-2">Avance por Etapas</h2>
+        <p className="text-sm text-gray-600 mb-6">Click en una etapa para ver los trámites. Porcentajes basados en metas {goals?.goals?.label || '2025'}.</p>
+        
+        {goals?.progress && (
+          <div className="relative">
+            {/* Línea conectora de fondo */}
+            <div className="absolute top-1/2 left-0 right-0 h-1 bg-gradient-to-r from-primary/20 via-primary/40 to-primary/20 transform -translate-y-1/2 hidden lg:block" style={{zIndex: 0}}></div>
+            
+            <div className="relative grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3" style={{zIndex: 1}}>
+              {/* E1 */}
+              {(() => {
+                const etapaData = goals.progress.etapa1;
+                const etapaNombre = resumenGlobal?.fases?.[0]?.nombre || 'Trámites Intervenidos';
+                return (
+                  <button
+                    onClick={() => handleGlobalEtapaClick(1, etapaNombre)}
+                    className="group bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-primary hover:shadow-lg transition-all"
+                    disabled={etapaData?.actual === 0}
+                  >
+                    <div className="relative w-16 h-16 mx-auto mb-3">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-200" />
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - (etapaData?.porcentaje || 0) / 100)}`}
+                          className="text-primary transition-all duration-1000"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-base font-bold">{(etapaData?.porcentaje || 0).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-primary">E1</div>
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-1">{etapaNombre}</div>
+                      <div className="text-sm font-bold text-gray-800 mt-2">{formatNumber(etapaData?.actual || 0)}<span className="text-gray-400 font-normal">/{formatNumber(etapaData?.meta || 0)}</span></div>
+                    </div>
+                  </button>
+                );
+              })()}
+
+              {/* E2 */}
+              {(() => {
+                const etapaData = goals.progress.etapa2;
+                const etapaNombre = resumenGlobal?.fases?.[1]?.nombre || 'Modelado';
+                return (
+                  <button
+                    onClick={() => handleGlobalEtapaClick(2, etapaNombre)}
+                    className="group bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-primary hover:shadow-lg transition-all"
+                    disabled={etapaData?.actual === 0}
+                  >
+                    <div className="relative w-16 h-16 mx-auto mb-3">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-200" />
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - (etapaData?.porcentaje || 0) / 100)}`}
+                          className="text-primary transition-all duration-1000"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-base font-bold">{(etapaData?.porcentaje || 0).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-primary">E2</div>
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-1">{etapaNombre}</div>
+                      <div className="text-sm font-bold text-gray-800 mt-2">{formatNumber(etapaData?.actual || 0)}<span className="text-gray-400 font-normal">/{formatNumber(etapaData?.meta || 0)}</span></div>
+                    </div>
+                  </button>
+                );
+              })()}
+
+              {/* E3 y E4 - Tarjeta combinada */}
+              <div className="col-span-2 bg-gradient-to-br from-primary/5 via-white to-primary/5 rounded-xl p-4 shadow-sm border-2 border-primary/30">
+                <div className="grid grid-cols-2 gap-3">
+                  {[3, 4].map((etapaNum) => {
+                    const etapaKey = `etapa${etapaNum}`;
+                    const etapaData = goals.progress[etapaKey];
+                    const etapaNombre = resumenGlobal?.fases?.[etapaNum - 1]?.nombre || `Etapa ${etapaNum}`;
+                    return (
+                      <button
+                        key={etapaKey}
+                        onClick={() => handleGlobalEtapaClick(etapaNum, etapaNombre)}
+                        className="group bg-white rounded-lg p-3 border border-gray-200 hover:border-primary hover:shadow-md transition-all"
+                        disabled={etapaData?.actual === 0}
+                      >
+                        <div className="relative w-14 h-14 mx-auto mb-2">
+                          <svg className="w-full h-full transform -rotate-90">
+                            <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="5" fill="transparent" className="text-gray-200" />
+                            <circle cx="28" cy="28" r="24" stroke="currentColor" strokeWidth="5" fill="transparent"
+                              strokeDasharray={`${2 * Math.PI * 24}`}
+                              strokeDashoffset={`${2 * Math.PI * 24 * (1 - (etapaData?.porcentaje || 0) / 100)}`}
+                              className="text-primary transition-all duration-1000"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-sm font-bold">{(etapaData?.porcentaje || 0).toFixed(0)}%</span>
+                          </div>
+                        </div>
+                        <div className="text-center">
+                          <div className="font-bold text-primary text-sm">E{etapaNum}</div>
+                          <div className="text-xs text-gray-600 line-clamp-1">{etapaNombre}</div>
+                          <div className="text-sm font-bold text-gray-800 mt-1">{formatNumber(etapaData?.actual || 0)}<span className="text-gray-400 font-normal text-xs">/{formatNumber(etapaData?.meta || 0)}</span></div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="font-semibold text-sm">E{etapaNum}</div>
-                <div className="text-xs opacity-70 mt-1">{etapaNombre}</div>
-                <div className="text-xs font-bold mt-1 text-primary">
-                  {formatNumber(etapaData.actual)} / {formatNumber(etapaData.meta)}
-                </div>
-                <div className="text-xs text-gray-500 mt-0.5">
-                  Meta 2025
-                </div>
-              </button>
-            );
-          })}
-        </div>
+              </div>
+
+              {/* E5 */}
+              {(() => {
+                const etapaData = goals.progress.etapa5;
+                const etapaNombre = resumenGlobal?.fases?.[4]?.nombre || 'Implementación';
+                return (
+                  <button
+                    onClick={() => handleGlobalEtapaClick(5, etapaNombre)}
+                    className="group bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-primary hover:shadow-lg transition-all"
+                    disabled={etapaData?.actual === 0}
+                  >
+                    <div className="relative w-16 h-16 mx-auto mb-3">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-200" />
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - (etapaData?.porcentaje || 0) / 100)}`}
+                          className="text-primary transition-all duration-1000"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-base font-bold">{(etapaData?.porcentaje || 0).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-primary">E5</div>
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-1">{etapaNombre}</div>
+                      <div className="text-sm font-bold text-gray-800 mt-2">{formatNumber(etapaData?.actual || 0)}<span className="text-gray-400 font-normal">/{formatNumber(etapaData?.meta || 0)}</span></div>
+                    </div>
+                  </button>
+                );
+              })()}
+
+              {/* E6 */}
+              {(() => {
+                const etapaData = goals.progress.etapa6;
+                const etapaNombre = resumenGlobal?.fases?.[5]?.nombre || 'Liberación';
+                return (
+                  <button
+                    onClick={() => handleGlobalEtapaClick(6, etapaNombre)}
+                    className="group bg-white rounded-xl p-4 shadow-sm border-2 border-gray-100 hover:border-primary hover:shadow-lg transition-all"
+                    disabled={etapaData?.actual === 0}
+                  >
+                    <div className="relative w-16 h-16 mx-auto mb-3">
+                      <svg className="w-full h-full transform -rotate-90">
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent" className="text-gray-200" />
+                        <circle cx="32" cy="32" r="28" stroke="currentColor" strokeWidth="6" fill="transparent"
+                          strokeDasharray={`${2 * Math.PI * 28}`}
+                          strokeDashoffset={`${2 * Math.PI * 28 * (1 - (etapaData?.porcentaje || 0) / 100)}`}
+                          className="text-primary transition-all duration-1000"
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-base font-bold">{(etapaData?.porcentaje || 0).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-bold text-primary">E6</div>
+                      <div className="text-xs text-gray-600 mt-1 line-clamp-1">{etapaNombre}</div>
+                      <div className="text-sm font-bold text-gray-800 mt-2">{formatNumber(etapaData?.actual || 0)}<span className="text-gray-400 font-normal">/{formatNumber(etapaData?.meta || 0)}</span></div>
+                    </div>
+                  </button>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Buscador de Dependencias */}
@@ -406,12 +599,10 @@ const Dashboard = () => {
                 <div className="text-5xl font-bold text-primary opacity-20">
                   #{index + 1}
                 </div>
-                <div className={`badge badge-lg ${
-                  dep.semaforo === 'verde' ? 'badge-success' :
-                  dep.semaforo === 'ambar' ? 'badge-warning' : 'badge-error'
-                }`}>
-                  {dep.semaforo === 'verde' ? '🟢' : dep.semaforo === 'ambar' ? '🟡' : '🔴'} {dep.semaforo.toUpperCase()}
-                </div>
+                <div className={`w-4 h-4 rounded-full shadow-md ${
+                  dep.semaforo === 'verde' ? 'bg-green-500' :
+                  dep.semaforo === 'ambar' ? 'bg-yellow-400' : 'bg-red-500'
+                }`} title={dep.semaforo}></div>
               </div>
               <h3 className="text-lg font-bold mb-3 line-clamp-2">
                 {dep.dependencia}
@@ -469,14 +660,21 @@ const Dashboard = () => {
               <tr>
                 <th>Dependencia</th>
                 <th className="text-center">Trámites</th>
-                <th className="text-center">Nivel de Digitalización</th>
-                <th className="text-center">F1</th>
-                <th className="text-center">F2</th>
-                <th className="text-center">F3</th>
-                <th className="text-center">F4</th>
-                <th className="text-center">F5</th>
-                <th className="text-center">F6</th>
-                <th className="text-center">Estado</th>
+                <th className="text-center">Nivel Dig.</th>
+                <th className="text-center">E1</th>
+                <th className="text-center">E2</th>
+                <th className="text-center">E3</th>
+                <th className="text-center" title="Acciones de Simplificación + Regulación">Acciones</th>
+                <th className="text-center">E4</th>
+                <th className="text-center">E5</th>
+                <th className="text-center">E6</th>
+                <th 
+                  className="text-center cursor-pointer hover:bg-[#691C32] select-none"
+                  onClick={() => setDepSortAsc(!depSortAsc)}
+                  title="Click para invertir orden"
+                >
+                  Estado {depSortAsc ? '↑' : '↓'}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -520,6 +718,9 @@ const Dashboard = () => {
                     <div className="text-xs opacity-60">{dep.porcentajes?.f3 || 0}%</div>
                   </td>
                   <td className="text-center">
+                    <span className="text-sm font-semibold text-primary">{dep.total_acciones || 0}</span>
+                  </td>
+                  <td className="text-center">
                     <span className="text-sm">{dep.fases.f4}</span>
                     <div className="text-xs opacity-60">{dep.porcentajes?.f4 || 0}%</div>
                   </td>
@@ -532,12 +733,10 @@ const Dashboard = () => {
                     <div className="text-xs opacity-60">{dep.porcentajes?.f6 || 0}%</div>
                   </td>
                   <td className="text-center">
-                    <div className={`badge ${
-                      dep.semaforo === 'verde' ? 'badge-success' :
-                      dep.semaforo === 'ambar' ? 'badge-warning' : 'badge-error'
-                    }`}>
-                      {dep.semaforo === 'verde' ? '🟢' : dep.semaforo === 'ambar' ? '🟡' : '🔴'} {dep.semaforo}
-                    </div>
+                    <div className={`w-3 h-3 rounded-full ${
+                      dep.semaforo === 'verde' ? 'bg-green-500' :
+                      dep.semaforo === 'ambar' ? 'bg-yellow-400' : 'bg-red-500'
+                    }`} title={dep.semaforo}></div>
                   </td>
                 </tr>
               ))}
@@ -641,26 +840,45 @@ const Dashboard = () => {
                       )}
                     </div>
                   </th>
+                  <th 
+                    className="text-center cursor-pointer hover:bg-primary-focus"
+                    onClick={() => handleTramiteSort('total_acciones')}
+                    title="Simplificación + Regulación"
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Acciones
+                      {tramiteSortConfig.key === 'total_acciones' && (
+                        <span>{tramiteSortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-center cursor-pointer hover:bg-primary-focus"
+                    onClick={() => handleTramiteSort('semaforo')}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      Estado
+                      {tramiteSortConfig.key === 'semaforo' && (
+                        <span>{tramiteSortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {filteredAndSortedTramites.map((tramite, index) => {
-                const fasesCompletadas = [
-                  tramite.fase1_tramites_intervenidos,
-                  tramite.fase2_modelado,
-                  tramite.fase3_reingenieria,
-                  tramite.fase4_digitalizacion,
-                  tramite.fase5_implementacion,
-                  tramite.fase6_liberacion,
-                ].filter(Boolean).length;
-
                 return (
                   <tr key={tramite.id}>
                     <td className="font-bold">{index + 1}</td>
                     <td className="font-medium">{tramite.tramite}</td>
                     <td className="text-sm opacity-70">{tramite.dependencia}</td>
                     <td className="text-center">
-                      <div className="badge badge-primary badge-lg">
+                      <div className={`badge badge-lg ${
+                        tramite.nivel_digitalizacion >= 3.5 ? 'bg-green-500 text-white' :
+                        tramite.nivel_digitalizacion >= 2.5 ? 'bg-lime-500 text-white' :
+                        tramite.nivel_digitalizacion >= 1.5 ? 'bg-yellow-400 text-gray-800' :
+                        tramite.nivel_digitalizacion >= 0.5 ? 'bg-orange-500 text-white' : 'bg-red-500 text-white'
+                      }`}>
                         {tramite.nivel_digitalizacion}
                       </div>
                     </td>
@@ -686,6 +904,15 @@ const Dashboard = () => {
                         ))}
                       </div>
                     </td>
+                    <td className="text-center">
+                      <span className="text-sm font-semibold text-primary">{tramite.total_acciones}</span>
+                    </td>
+                    <td className="text-center">
+                      <div className={`w-3 h-3 rounded-full mx-auto ${
+                        tramite.semaforo === 'verde' ? 'bg-green-500' :
+                        tramite.semaforo === 'ambar' ? 'bg-yellow-400' : 'bg-red-500'
+                      }`} title={tramite.semaforo}></div>
+                    </td>
                   </tr>
                 );
               })}
@@ -710,12 +937,10 @@ const Dashboard = () => {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <div className={`badge badge-lg ${
-                      selectedDep.semaforo === 'verde' ? 'badge-success' :
-                      selectedDep.semaforo === 'ambar' ? 'badge-warning' : 'badge-error'
-                    }`}>
-                      {selectedDep.semaforo === 'verde' ? '🟢' : selectedDep.semaforo === 'ambar' ? '🟡' : '🔴'} {selectedDep.semaforo.toUpperCase()}
-                    </div>
+                    <div className={`w-4 h-4 rounded-full shadow-md ${
+                      selectedDep.semaforo === 'verde' ? 'bg-green-500' :
+                      selectedDep.semaforo === 'ambar' ? 'bg-yellow-400' : 'bg-red-500'
+                    }`} title={selectedDep.semaforo}></div>
                   </div>
                   <h2 className="text-2xl font-bold mb-1">{selectedDep.dependencia}</h2>
                   <p className="text-sm opacity-90">Flujo de simplificación de trámites</p>
@@ -858,15 +1083,7 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {/* Nota explicativa */}
-              <div className="bg-[#9F2241] bg-opacity-5 p-4 rounded-lg border-l-4 border-[#9F2241]">
-                <p className="text-sm text-gray-700">
-                  <strong>Nota:</strong> Las etapas son secuenciales. Un trámite debe completar una etapa antes de pasar a la siguiente. 
-                  Los porcentajes mostrados indican la proporción de trámites que han alcanzado <strong>al menos</strong> esa etapa.
-                  Click en cualquier etapa para ver el listado de trámites.
-                </p>
-              </div>
-
+              
               {/* Botón de cerrar */}
               <div className="flex justify-center pt-4 border-t">
                 <button
@@ -947,7 +1164,7 @@ const Dashboard = () => {
                     <tr>
                       <th className="text-center">#</th>
                       <th 
-                        className="cursor-pointer hover:bg-[#691C32]"
+                        className="cursor-pointer hover:bg-[#691C32] max-w-[280px]"
                         onClick={() => handleModalSort('tramite')}
                       >
                         Trámite {modalSortConfig.key === 'tramite' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
@@ -964,14 +1181,25 @@ const Dashboard = () => {
                       >
                         Nivel de Digitalización {modalSortConfig.key === 'nivel_digitalizacion' && (modalSortConfig.direction === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th className="text-center">Avance</th>
+                      {selectedGlobalEtapa.num === 3 ? (
+                        <th className="text-center min-w-[140px]">
+                          <div className="text-center">Acciones</div>
+                          <div className="flex justify-center mt-1 text-xs font-normal">
+                            <span className="w-10 text-center" title="Acciones de Simplificación">S</span>
+                            <span className="w-10 text-center border-l border-white/30" title="Acciones de Regulación">R</span>
+                            <span className="w-12 text-center border-l border-white/30">Total</span>
+                          </div>
+                        </th>
+                      ) : (
+                        <th className="text-center">Avance</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAndSortedModalTramites.map((tramite, index) => (
                       <tr key={index} className="hover:bg-gray-50">
                         <td className="font-bold text-center">{index + 1}</td>
-                        <td className="font-medium">{tramite.tramite}</td>
+                        <td className="font-medium max-w-[280px] truncate" title={tramite.tramite}>{tramite.tramite}</td>
                         <td className="text-sm text-gray-600">{tramite.dependencia}</td>
                         <td className="text-center">
                           <span className="badge badge-lg bg-[#235B4E] text-white font-semibold">
@@ -979,28 +1207,36 @@ const Dashboard = () => {
                           </span>
                         </td>
                         <td>
-                          <div className="flex gap-1 justify-center">
-                            {[
-                              { num: 1, completada: tramite.fase1_tramites_intervenidos },
-                              { num: 2, completada: tramite.fase2_modelado },
-                              { num: 3, completada: tramite.fase3_reingenieria },
-                              { num: 4, completada: tramite.fase4_digitalizacion },
-                              { num: 5, completada: tramite.fase5_implementacion },
-                              { num: 6, completada: tramite.fase6_liberacion },
-                            ].map((etapa) => (
-                              <div
-                                key={etapa.num}
-                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                                  etapa.completada
-                                    ? 'bg-gradient-to-br from-[#9F2241] to-[#691C32] text-white'
-                                    : 'bg-gray-200 text-gray-400'
-                                }`}
-                                title={`Etapa ${etapa.num}${etapa.completada ? ' - Completada' : ''}`}
-                              >
-                                E{etapa.num}
-                              </div>
-                            ))}
-                          </div>
+                          {selectedGlobalEtapa.num === 3 ? (
+                            <div className="flex justify-center items-center">
+                              <span className="w-10 text-center font-semibold text-gray-700">{tramite.s || 0}</span>
+                              <span className="w-10 text-center font-semibold text-gray-700 border-l border-gray-300">{tramite.r || 0}</span>
+                              <span className="w-12 text-center font-bold text-gray-800 border-l border-gray-300">{(tramite.s || 0) + (tramite.r || 0)}</span>
+                            </div>
+                          ) : (
+                            <div className="flex gap-1 justify-center">
+                              {[
+                                { num: 1, completada: tramite.fase1_tramites_intervenidos },
+                                { num: 2, completada: tramite.fase2_modelado },
+                                { num: 3, completada: tramite.fase3_reingenieria },
+                                { num: 4, completada: tramite.fase4_digitalizacion },
+                                { num: 5, completada: tramite.fase5_implementacion },
+                                { num: 6, completada: tramite.fase6_liberacion },
+                              ].map((etapa) => (
+                                <div
+                                  key={etapa.num}
+                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                    etapa.completada
+                                      ? 'bg-gradient-to-br from-[#9F2241] to-[#691C32] text-white'
+                                      : 'bg-gray-200 text-gray-400'
+                                  }`}
+                                  title={`Etapa ${etapa.num}${etapa.completada ? ' - Completada' : ''}`}
+                                >
+                                  E{etapa.num}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}

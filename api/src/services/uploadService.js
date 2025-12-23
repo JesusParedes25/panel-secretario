@@ -57,6 +57,16 @@ const validateRow = (row) => {
     }
   });
 
+  // Validar campos s y r (enteros >= 0, opcionales - default 0)
+  const sVal = parseInt(row.s) || 0;
+  const rVal = parseInt(row.r) || 0;
+  if (sVal < 0) {
+    errors.push(`s debe ser >= 0, recibido: ${row.s}`);
+  }
+  if (rVal < 0) {
+    errors.push(`r debe ser >= 0, recibido: ${row.r}`);
+  }
+
   return {
     valid: errors.length === 0,
     errors,
@@ -70,6 +80,8 @@ const validateRow = (row) => {
       fase4_digitalizacion: parseInt(row.fase4_digitalizacion) === 1,
       fase5_implementacion: parseInt(row.fase5_implementacion) === 1,
       fase6_liberacion: parseInt(row.fase6_liberacion) === 1,
+      s: parseInt(row.s) || 0,
+      r: parseInt(row.r) || 0,
     },
   };
 };
@@ -89,26 +101,15 @@ const upsertDependencia = async (client, nombre) => {
 };
 
 /**
- * Upsert de trámite (actualiza si existe con mismo nombre y dependencia)
+ * Upsert de trámite (actualiza si existe con mismo nombre, dependencia y año)
  */
-const upsertTramite = async (client, data, dependenciaId) => {
-  const query = `
-    INSERT INTO tramites (
-      dependencia_id, nombre, nivel_digitalizacion,
-      fase1_tramites_intervenidos, fase2_modelado, fase3_reingenieria,
-      fase4_digitalizacion, fase5_implementacion, fase6_liberacion
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-    ON CONFLICT ON CONSTRAINT tramites_pkey DO NOTHING
-    RETURNING id
-  `;
-
-  // Primero verificar si existe
+const upsertTramite = async (client, data, dependenciaId, anio) => {
+  // Primero verificar si existe para el mismo año
   const checkQuery = `
     SELECT id FROM tramites
-    WHERE dependencia_id = $1 AND nombre = $2
+    WHERE dependencia_id = $1 AND nombre = $2 AND anio = $3
   `;
-  const existing = await client.query(checkQuery, [dependenciaId, data.tramite]);
+  const existing = await client.query(checkQuery, [dependenciaId, data.tramite, anio]);
 
   if (existing.rows.length > 0) {
     // Actualizar
@@ -121,6 +122,8 @@ const upsertTramite = async (client, data, dependenciaId) => {
         fase4_digitalizacion = $7,
         fase5_implementacion = $8,
         fase6_liberacion = $9,
+        s = $10,
+        r = $11,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = $1 AND dependencia_id = $2
       RETURNING id
@@ -135,13 +138,26 @@ const upsertTramite = async (client, data, dependenciaId) => {
       data.fase4_digitalizacion,
       data.fase5_implementacion,
       data.fase6_liberacion,
+      data.s,
+      data.r,
     ]);
     return { id: result.rows[0].id, updated: true };
   } else {
-    // Insertar
-    const result = await client.query(query, [
+    // Insertar con año
+    const insertQuery = `
+      INSERT INTO tramites (
+        dependencia_id, nombre, anio, nivel_digitalizacion,
+        fase1_tramites_intervenidos, fase2_modelado, fase3_reingenieria,
+        fase4_digitalizacion, fase5_implementacion, fase6_liberacion,
+        s, r
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      RETURNING id
+    `;
+    const result = await client.query(insertQuery, [
       dependenciaId,
       data.tramite,
+      anio,
       data.nivel_digitalizacion,
       data.fase1_tramites_intervenidos,
       data.fase2_modelado,
@@ -149,15 +165,17 @@ const upsertTramite = async (client, data, dependenciaId) => {
       data.fase4_digitalizacion,
       data.fase5_implementacion,
       data.fase6_liberacion,
+      data.s,
+      data.r,
     ]);
     return { id: result.rows[0].id, updated: false };
   }
 };
 
 /**
- * Procesa archivo CSV y carga los datos
+ * Procesa archivo CSV y carga los datos para un año específico
  */
-const processCSV = async (filePath, filename) => {
+const processCSV = async (filePath, filename, anio = 2025) => {
   return new Promise((resolve, reject) => {
     const results = {
       rowsRead: 0,
@@ -165,6 +183,7 @@ const processCSV = async (filePath, filename) => {
       rowsUpdated: 0,
       rowsInvalid: 0,
       errors: [],
+      anio,
     };
 
     const records = [];
@@ -195,11 +214,10 @@ const processCSV = async (filePath, filename) => {
       try {
         await client.query('BEGIN');
 
-        // Eliminar todos los datos anteriores (resetear base de datos)
-        logger.info('Reseteando base de datos antes de cargar nuevos datos');
-        await client.query('DELETE FROM tramites');
-        await client.query('DELETE FROM dependencias');
-        logger.info('Base de datos reseteada correctamente');
+        // Eliminar solo los trámites del año específico (no todos los datos)
+        logger.info(`Eliminando trámites del año ${anio} antes de cargar nuevos datos`);
+        await client.query('DELETE FROM tramites WHERE anio = $1', [anio]);
+        logger.info(`Trámites del año ${anio} eliminados correctamente`);
 
         for (const record of records) {
           results.rowsRead++;
@@ -224,11 +242,12 @@ const processCSV = async (filePath, filename) => {
               validation.data.dependencia
             );
 
-            // Upsert trámite
+            // Upsert trámite con año
             const tramiteResult = await upsertTramite(
               client,
               validation.data,
-              dependenciaId
+              dependenciaId,
+              anio
             );
 
             if (tramiteResult.updated) {
@@ -255,7 +274,7 @@ const processCSV = async (filePath, filename) => {
           `INSERT INTO carga_logs (filename, rows_read, rows_inserted, rows_invalid, errors)
            VALUES ($1, $2, $3, $4, $5)`,
           [
-            filename,
+            `${filename} (${anio})`,
             results.rowsRead,
             results.rowsInserted + results.rowsUpdated,
             results.rowsInvalid,

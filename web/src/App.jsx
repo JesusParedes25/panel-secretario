@@ -28,29 +28,30 @@ function App() {
 
   return (
     <BrowserRouter>
-      {/* Fondo de partículas (opcional) */}
-      <ParticlesBackground enabled={particlesEnabled} />
+        {/* Fondo de partículas (opcional) */}
+        <ParticlesBackground enabled={particlesEnabled} />
 
-      {/* Layout y rutas */}
-      <Layout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/dependencias" element={<Dependencias />} />
-          <Route path="/tramites" element={<Tramites />} />
-          <Route path="/carga" element={<Carga />} />
-          <Route path="/acerca" element={<Acerca />} />
+          {/* Rutas públicas con Layout */}
+          <Route path="/" element={<Layout><Dashboard /></Layout>} />
+          <Route path="/dependencias" element={<Layout><Dependencias /></Layout>} />
+          <Route path="/tramites" element={<Layout><Tramites /></Layout>} />
+          <Route path="/carga" element={<Layout><Carga /></Layout>} />
+          <Route path="/acerca" element={<Layout><Acerca /></Layout>} />
           
           {/* 404 - Ruta no encontrada */}
           <Route
             path="*"
             element={
-              <div className="text-center py-20">
-                <h1 className="text-6xl font-bold text-primary mb-4">404</h1>
-                <p className="text-2xl mb-4">Página no encontrada</p>
-                <a href="/" className="btn btn-primary">
-                  Volver al Dashboard
-                </a>
-              </div>
+              <Layout>
+                <div className="text-center py-20">
+                  <h1 className="text-6xl font-bold text-primary mb-4">404</h1>
+                  <p className="text-2xl mb-4">Página no encontrada</p>
+                  <a href="/" className="btn btn-primary">
+                    Volver al Dashboard
+                  </a>
+                </div>
+              </Layout>
             }
           />
         </Routes>
@@ -63,8 +64,7 @@ function App() {
         >
           {particlesEnabled ? '✨' : '⭐'}
         </button>
-      </Layout>
-    </BrowserRouter>
+      </BrowserRouter>
   );
 }
 

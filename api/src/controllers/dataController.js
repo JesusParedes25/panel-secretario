@@ -9,14 +9,17 @@ const logger = require('../config/logger');
 /**
  * GET /api/v1/resumen/global
  * Obtiene KPIs globales
+ * Soporta query param ?anio=2025 o ?anio=all
  */
 const getResumenGlobal = async (req, res, next) => {
   try {
-    const data = await dataService.getResumenGlobal();
+    const { anio } = req.query;
+    const data = await dataService.getResumenGlobal(anio);
     
     res.json({
       success: true,
       data,
+      anio: anio || 'all',
     });
   } catch (error) {
     logger.error('Error en getResumenGlobal', { error: error.message });
