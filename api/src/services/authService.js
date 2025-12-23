@@ -3,7 +3,7 @@
  * Panel Secretario - Gobierno de Hidalgo
  */
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 const logger = require('../config/logger');
